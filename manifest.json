@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "BiliScope - Bilibili插件，知道TA是个什么UP主",
-  "version": "0.4.6",
-  "description": "可以在B站的各类网页上显示用户的详细信息，包括关注数、粉丝数、投稿数、签名、投稿词云等等。还可以给UP主做备注和标签！",
+  "name": "BiliScope - Bilibili插件，你的B站小助手",
+  "version": "0.6.1",
+  "description": "可以显示视频的AI内容总结，在B站的各类网页上显示用户的详细信息，包括关注数、粉丝数、投稿数、签名、投稿词云等等。还可以给UP主做备注和标签！",
   "icons": {
     "128": "img/logo.png"
   },
@@ -14,16 +14,21 @@
         "scripts/stopwords.js",
         "scripts/wordcloud2.min.js",
         "scripts/md5.js",
-        "scripts/options.js",
         "scripts/util.js",
         "scripts/biliapi.js",
         "scripts/searchpage.js",
         "scripts/note.js",
+        "scripts/videotag.js",
         "scripts/ui.js",
-        "scripts/biliscope.js"
+        "scripts/videoui.js",
+        "scripts/biliscope.js",
+        "scripts/load.js",
+        "scripts/rollbackfeedcard.js"
       ],
       "css": [
         "css/idcard.css",
+        "css/videocard.css",
+        "css/videotag.css",
         "css/searchpage.css"
       ],
       "matches": [
@@ -36,17 +41,23 @@
   "permissions": [
     "storage"
   ],
+  "host_permissions": [
+    "https://*.bilibili.com/*"
+  ],
   "action": {
     "default_popup": "options/options.html",
-    "default_title": "BiliScope - Bilibili插件，知道TA是个什么UP主"
+    "default_title": "BiliScope - Bilibili插件，你的B站小助手"
   },
   "options_ui": {
     "page": "options/options.html",
     "open_in_tab": false
   },
+  "background": {
+    "service_worker": "changelog/background.js"
+  },
   "web_accessible_resources": [
     {
-      "resources": ["img/bililv.svg", "scripts/sitescript.js"],
+      "resources": ["img/bililv.svg", "scripts/sitescripts/*.js", "changelog/changelog.*"],
       "matches": ["https://*.bilibili.com/*"]
     }
   ]

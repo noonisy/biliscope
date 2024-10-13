@@ -20,17 +20,13 @@ function relationDisplay(data) {
         return null;
     }
 
-    if (data["relation"]["attribute"] == 128) {
-        return "已拉黑";
-    }
-
     if (data["be_relation"]["attribute"] == 128) {
         return "已被拉黑";
     }
 
     if (data["relation"]["attribute"] == 0) {
         if (data["be_relation"]["attribute"] == 0) {
-            return "+ 关注";
+            return "关注";
         } else if (data["be_relation"]["attribute"] == 2) {
             return "关注了你";
         }
@@ -45,17 +41,56 @@ function relationDisplay(data) {
     return null;
 }
 
+function subscribeTimeToDisplay(data) {
+    if (data["relation"] && data["relation"]["mtime"]) {
+        return `关注时间：${timestampToDisplay(data["relation"]["mtime"])}`;
+    } else {
+        return '';
+    }
+}
+
 function relationClass(data) {
     text = relationDisplay(data);
     if (text == null) {
         return "d-none";
-    } else if (text == "已拉黑" || text == "已被拉黑") {
+    } else if (text == "已被拉黑") {
         return "biliscope-relation-black";
-    } else if (text == "+ 关注" || text == "关注了你") {
+    } else if (text == "关注" || text == "关注了你") {
         return "biliscope-relation-follow";
     } else if (text == "已关注" || text == "已互粉") {
         return "biliscope-relation-followed";
     }
+}
+
+function blockDisplay(data) {
+    if (data?.relation?.attribute === undefined) {
+        return null;
+    }
+
+    if (data["relation"]["attribute"] == 128) {
+        return "取消拉黑";
+    } else {
+        return "拉黑";
+    }
+}
+
+function blockClass(data) {
+    const text = blockDisplay(data);
+    if (biliScopeOptions.enableBlockButton && text) {
+        return "biliscope-relation-block";
+    }
+    return "d-none";
+}
+
+function messageClass(data) {
+    if (data?.relation?.attribute == 128 || data?.be_relation?.attribute == 128) {
+        return "d-none";
+    }
+    return "biliscope-relation-message";
+}
+
+function messageLink(data) {
+    return `https://message.bilibili.com/#/whisper/mid${data["mid"]}`;
 }
 
 function noteDataToDisplay(noteData, mid) {
@@ -68,6 +103,15 @@ function noteDataToDisplay(noteData, mid) {
 function getUserProfileCardDataHTML(data) {
     return `
         <div class="idc-theme-img" style="background-image: url(&quot;${data["top_photo"]}@100Q.webp&quot;);">
+            <div style="position: absolute; top: 85px; right: 10px">
+                <a><span id="biliscope-follow-button" 
+                         class="biliscope-relation ${relationClass(data)}" 
+                         ${data?.relation?.mtime ? `title="${subscribeTimeToDisplay(data)}"` : ''}>
+                    ${relationDisplay(data)}
+                </span></a>
+                <a><span id="biliscope-block-button" class="biliscope-relation ${blockClass(data)}">${blockDisplay(data)}</span></a>
+                <a href="${messageLink(data)}"><span class="biliscope-relation ${messageClass(data)}">私信</span></a>
+            </div>
         </div>
         <div class="idc-info clearfix">
             <a class="idc-avatar-container" href="https://space.bilibili.com/${data["mid"]}" target="_blank">
@@ -83,7 +127,7 @@ function getUserProfileCardDataHTML(data) {
                 </div>
             </a>
             <div class="idc-content h">
-                <div>
+                <div style="white-space: nowrap">
                     <div id="biliscope-username-wrapper" style="display: inline-block">
                         <a class="idc-username">
                             <b title="点击添加备注" class="idc-uname" style="${data["vip"] ? "color: rgb(251, 114, 153);": "color: #18191C"}">
@@ -97,7 +141,6 @@ function getUserProfileCardDataHTML(data) {
                             </span>
                         </span>
                     </div>
-                    <a><span id="biliscope-follow-button" class="biliscope-relation ${relationClass(data)}">${relationDisplay(data)}</span></a>
                 </div>
                 <div class="idc-meta" id="biliscope-note-wrapper">
                     <div class="idc-meta-item"
@@ -132,9 +175,15 @@ function getUserProfileCardDataHTML(data) {
             </div>
             <div id="biliscope-tag-list">
             </div>
-            <div class="idc-auth-description" style="${data["title"] ? "": "display: none"}">
-                <span style="display: flex">
-                    ${data["title"] ? `<a class="biliscope-auth-icon ${titleTypeToClass(data["title_type"])}"></a>${data["title"]}`: ""}
+            <div class="idc-auth-description">
+                <span style="display: ${data["title"] ? "flex": "none"}">
+                    <span class="biliscope-auth-icon ${titleTypeToClass(data["title_type"])}"></span>
+                    ${data["title"]}
+                </span>
+                <span class="biliscope-profession-description" style="display: ${data["profession"] ? "flex": "none"}">
+                    <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADYAAAA2CAMAAAC7m5rvAAAABGdBTUEAALGPC/xhBQAAAAFzUkdCAK7OHOkAAABFUExURUxpcWFlbV9lbWFlbF9ka2FlbV9nb2FmbF9jb19jbF9fb19kbGFmbV9lbV9mbF9mbWJlbmFlbV9mbGFmbWJnbmBlbGFmbSRGAiYAAAAWdFJOUwC/kN8w3yDvEEAgYJ+AcFCPz6Cvb7D9AeNOAAABvElEQVR42u1Wy7aDIAwU5C1WrS3//6k3UE9zEsB6F901OyGTZCYRGH72TXNe7tqmZDcx+6sgLwGBZqO6AhKpMhE+lbcWPy0n4+BLLVKXhdWdoUJxioSPuue18SShyqSE4csmA0d1hrK31s4t76hehf2YRgMuNNXIKFIgx40tXVaIZ855r40SgTblxfmBQz0yAoTvANBDVDVALHMOM4108Z1smnCVrkD7JNsCwurlU1F8pPTCeRCNigkr45u5dbydRzrNq5wxv2ZCx3fEQYIXV2nBxMmTxpRkB4EngW1AjQtdN8ZAYq6Iw82cGhNgYxzwJjDYJERHh0wlcevDHOSeMYLpwbBIbEIoeljUo1WkRgaoA4qPE7gR2POISpsQ2BQuqHG7kXtx0JCUec2N4UIzmRQRnw0XiufZtFnNgiuuSMkf+cmC7aM/FxMhkJ8swyZ+bKiPv7zgAxjRg6a7ESaaHmSP9rEhq4MXiR0DI3vHa+hfKlwg7FUfpzLK/PfqeFjOgMdMsUoYREJU74IAIPHwIDyvkJuTqTjJRTn4MtNxCUs3nJtpXflXXhnqTh8Y8vrTZBZbFk/v0rvhZ1+0P1TyJPe5FgeZAAAAAElFTkSuQmCC"
+                         class="biliscope-profession-description-icon">
+                    ${data["profession"]}
                 </span>
             </div>
             <div class="idc-auth-description">
@@ -227,6 +276,10 @@ function getUserProfileCardHTML(data) {
     `
 }
 
+function saveOptions() {
+    chrome.storage.sync.set(biliScopeOptions);
+}
+
 function UserProfileCard() {
     this.userId = null;
     this.data = {};
@@ -294,31 +347,27 @@ UserProfileCard.prototype.clearOriginalCard = function() {
         document.getElementById("id-card").remove();
     }
 
-    for (let card of document.getElementsByClassName("user-card")) {
+    for (const card of document.querySelectorAll(".user-card, .card-loaded, .bili-user-profile, bili-user-profile")) {
         card.hidden = true;
-    }
-
-    for (let card of document.getElementsByClassName("card-loaded")) {
-        card.hidden = true;
-    }
-
-    for (let card of document.getElementsByClassName("bili-user-profile")) {
-        card.hidden = true;
+        card.style.display = "none";
+        card.style.visibility = "hidden";
     }
 }
 
 UserProfileCard.prototype.initEvents = function() {
     let wordCloudCanvasWrapper = document.getElementById("word-cloud-canvas-wrapper");
     let wordCloudWrapper = document.getElementById("biliscope-wordcloud-wrapper");
+    let arrowUp = wordCloudWrapper.getElementsByClassName("arrow-up")[0];
+    let arrowDown = wordCloudWrapper.getElementsByClassName("arrow-down")[0];
 
     wordCloudWrapper.addEventListener("mouseenter", (ev) => {
         document.getElementById("word-cloud-toggler").hidden = false;
         if (biliScopeOptions.enableWordCloud) {
-            ev.target.getElementsByClassName("arrow-up")[0].hidden = false;
-            ev.target.getElementsByClassName("arrow-down")[0].hidden = true;
+            arrowUp.hidden = false;
+            arrowDown.hidden = true;
         } else {
-            ev.target.getElementsByClassName("arrow-up")[0].hidden = true;
-            ev.target.getElementsByClassName("arrow-down")[0].hidden = false;
+            arrowUp.hidden = true;
+            arrowDown.hidden = false;
         }
     });
 
@@ -326,21 +375,21 @@ UserProfileCard.prototype.initEvents = function() {
         document.getElementById("word-cloud-toggler").hidden = true;
     });
 
-    wordCloudWrapper.getElementsByClassName("arrow-up")[0].addEventListener("click", (ev) => {
+    arrowUp.addEventListener("click", (ev) => {
         biliScopeOptions.enableWordCloud = false;
         wordCloudCanvasWrapper.hidden = true;
         saveOptions();
-        wordCloudWrapper.getElementsByClassName("arrow-up")[0].hidden = true;
-        wordCloudWrapper.getElementsByClassName("arrow-down")[0].hidden = false;
+        arrowUp.hidden = true;
+        arrowDown.hidden = false;
     });
 
-    wordCloudWrapper.getElementsByClassName("arrow-down")[0].addEventListener("click", (ev) => {
+    arrowDown.addEventListener("click", (ev) => {
         let canvas = document.getElementById("word-cloud-canvas");
         biliScopeOptions.enableWordCloud = true;
         wordCloudCanvasWrapper.hidden = false;
         saveOptions();
-        wordCloudWrapper.getElementsByClassName("arrow-up")[0].hidden = false;
-        wordCloudWrapper.getElementsByClassName("arrow-down")[0].hidden = true;
+        arrowUp.hidden = false;
+        arrowDown.hidden = true;
         this.drawWordCloud(canvas);
     });
 }
@@ -389,6 +438,9 @@ UserProfileCard.prototype.updateTarget = function(target) {
         let node = target
         let zIndex = 1002;
         while (node && node != document) {
+            if (node instanceof ShadowRoot) {
+                node = node.host;
+            }
             let containerIndex = window.getComputedStyle(node).getPropertyValue("z-index");
             if (containerIndex && containerIndex != "auto" && containerIndex > zIndex) {
                 zIndex = containerIndex;
@@ -405,24 +457,38 @@ UserProfileCard.prototype.updateTarget = function(target) {
 UserProfileCard.prototype.setLeaveEvent = function() {
     let validTargets = [this.el, this.target];
 
-    this.leaveCallback = () => {
+    // The UI lives directly under document so switching to the UI will trigger
+    // the leave event. We need to dispatch the event to the popover to prevent
+    // the popover from disappearing.
+    const dispatchToPopover = (event) => {
+        const popover = this.target.closest(".v-popover");
+        popover?.dispatchEvent(new Event(event));
+    }
+
+    this.leaveCallback = (ev) => {
         if (this.disable()) {
             for (let target of validTargets) {
                 target.removeEventListener("mouseleave", this.disableDebounce);
                 target.removeEventListener("mouseenter", this.enterCallback);
             }
+            if (ev.target == this.el) {
+                dispatchToPopover("mouseleave");
+            }
         }
     }
 
-    this.enterCallback = () => {
+    this.enterCallback = (ev) => {
         clearTimeout(this.disableDebounce.timer);
+        if (ev.target == this.el) {
+            dispatchToPopover("mouseenter");
+        }
         this.cursorInside = true;
     }
 
-    this.disableDebounce = () => {
+    this.disableDebounce = (ev) => {
         this.cursorInside = false;
         this.disableDebounce.timer = setTimeout(() => {
-            this.leaveCallback();
+            this.leaveCallback(ev);
         }, 400);
     }
 
@@ -489,6 +555,7 @@ UserProfileCard.prototype.setupTriggers = function() {
     let text = document.getElementById("biliscope-card-note-text");
     let textarea = document.getElementById("biliscope-card-note-textarea");
     let followButton = document.getElementById("biliscope-follow-button");
+    let blockButton = document.getElementById("biliscope-block-button");
 
     // This event uses mousedown because the event trigger sequence click event will be later than blur
     userWrapper.addEventListener("mousedown", (ev) => {
@@ -571,21 +638,37 @@ UserProfileCard.prototype.setupTriggers = function() {
         }
     });
 
+    blockButton.addEventListener("click", (ev) => {
+        ev.stopPropagation();
+
+        const needBlock = blockButton.innerText == "拉黑";
+
+        biliPost("https://api.bilibili.com/x/relation/modify", {
+            fid: this.data["mid"],
+            act: needBlock ? 5 : 6,
+            re_src: 11
+        })
+        .then((data) => {
+            if (data["code"] == 0) {
+                updateRelation(this.userId, (data) => this.updateData(data));
+            }
+        });
+    });
 }
 
 UserProfileCard.prototype.drawWordCloud = function(canvas) {
     canvas.style.height = `${canvas.offsetWidth / 2}px`;
-    canvas.width = canvas.offsetWidth;
-    canvas.height = canvas.offsetHeight;
+    canvas.width = canvas.offsetWidth * window.devicePixelRatio;
+    canvas.height = canvas.offsetHeight * window.devicePixelRatio;
 
     canvas.parentNode.classList.add("biliscope-canvas-show");
 
     WordCloud(canvas, {
         list: JSON.parse(JSON.stringify(this.data["wordcloud"])),
         backgroundColor: "transparent",
-        weightFactor: 100 / this.wordCloudMaxCount(),
+        weightFactor: 100 / this.wordCloudMaxCount() * window.devicePixelRatio,
         shrinkToFit: true,
-        minSize: biliScopeOptions.minSize
+        minSize: biliScopeOptions.minSize * window.devicePixelRatio
     });
 }
 
@@ -617,6 +700,9 @@ UserProfileCard.prototype.updateData = function (data) {
         this.data["live_status"] = d["data"]["live_room"] ? d["data"]["live_room"]["liveStatus"]: 0;
         this.data["vip"] = d["data"]["vip"]["status"];
         this.data["top_photo"] = d["data"]["top_photo"].replace("http://", "https://");
+        this.data["profession"] = d["data"]["profession"]["is_show"]
+            ? `${d["data"]["profession"]["title"]} ${d["data"]["profession"]["department"]}`
+            : "";
     } else if (data["api"] == "relation") {
         this.data["relation"] = d["data"]["relation"];
         this.data["be_relation"] = d["data"]["be_relation"];
@@ -658,26 +744,5 @@ UserProfileCard.prototype.updateData = function (data) {
 
 var guardInfo = null;
 
-window.addEventListener("load", function() {
-    userProfileCard = new UserProfileCard();
-
-    getGuardInfo(6726252, 245645656).then((data) => {
-        guardInfo = data;
-        // Shuffle guardInfo
-        for (let i = 0; i < guardInfo.length; i++) {
-            let j = Math.floor(Math.random() * guardInfo.length);
-            let t = guardInfo[i];
-            guardInfo[i] = guardInfo[j];
-            guardInfo[j] = t;
-        }
-    });
-
-    getTagsInfo().then((data) => {
-        biliTags = data;
-    });
-
-    getMyInfo().then((data) => {
-        myMid = data["profile"]["mid"];
-    })
-
-});
+let biliTags = {};
+let myMid = null;

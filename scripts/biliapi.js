@@ -17,8 +17,8 @@ async function getBiliMixin() {
     return fetch("https://api.bilibili.com/x/web-interface/nav")
         .then((response) => response.json())
         .then((data) => {
-            let img_val = data.data.wbi_img.img_url.split("/").pop().split(".")[0];
-            let sub_val = data.data.wbi_img.sub_url.split("/").pop().split(".")[0];
+            let img_val = data["data"]["wbi_img"]["img_url"].split("/").pop().split(".")[0];
+            let sub_val = data["data"]["wbi_img"]["sub_url"].split("/").pop().split(".")[0];
             let val = img_val + sub_val;
             return OE.reduce((s, v) => s + val[v], "").substring(0, 32);
         });
@@ -31,7 +31,7 @@ async function biliGet(url, params, retry = 5) {
         biliMixin = await getBiliMixin();
     }
 
-    if (url.indexOf("/wbi/") != -1) {
+    if (url.indexOf("/wbi/") != -1 || url.indexOf("/conclusion/get") != -1) {
         // convert params to url in a sorted order
         params["wts"] = Math.floor(Date.now() / 1000);
         let keys = Object.keys(params).sort();
@@ -77,6 +77,7 @@ async function biliPost(url, params) {
  */
 
 var userInfoCache = new Map();
+var videoInfoCache = new Map();
 
 function updateWordMap(map, sentence, weight) {
     // Remove all URLs
@@ -85,34 +86,29 @@ function updateWordMap(map, sentence, weight) {
     // Remove date format like (YYYY-MM-DD hh:mm:ss | YYYY-MM-DD | YYYY-MM-D | YYYY-M-DD | YYYY-M-D | YYYY-M)
     sentence = sentence.replace(/\d{4}[-./]\d{1,2}([-./]\d{0,2})?(\s\d{2}:\d{2}:\d{2})?/g, '');
 
+    // Remove avid and bvid
+    sentence = sentence.replace(/[aA][vV]\d+/g, '');
+    sentence = sentence.replace(/[bB][vV]1[1-9a-km-zA-HJ-NP-Z]{9}/g, '');
+
     for (let word of IGNORE_WORDS) {
         sentence = sentence.replaceAll(word, '');
     }
 
-    let results = Array.from(new Intl.Segmenter('cn', { granularity: 'word' }).segment(sentence));
+    let words = Array.from(new Intl.Segmenter('cn', { granularity: 'word' }).segment(sentence))
+        .filter(segment => segment.isWordLike)
+        .map(segment => segment["segment"]);
     let wordMap = map.get("word");
 
-    for (let result of results) {
-        if (result.isWordLike) {
-            let word = result["segment"];
-            if (word && !STOP_WORDS.has(word)) {
-                if (wordMap.has(word)) {
-                    wordMap.set(word, wordMap.get(word) + weight);
-                } else {
-                    wordMap.set(word, weight);
-                }
-            }
+    for (let word of words) {
+        if (!STOP_WORDS.has(word)) {
+            wordMap.set(word, (wordMap.get(word) ?? 0) + weight);
         }
     }
 }
 
 function updateTypeMap(map, type) {
     let typeMap = map.get("type");
-    if (typeMap.has(type)) {
-        typeMap.set(type, typeMap.get(type) + 1);
-    } else {
-        typeMap.set(type, 1);
-    }
+    typeMap.set(type, (typeMap.get(type) ?? 0) + 1);
 }
 
 function videoLengthStringToSeconds(s) {
@@ -201,24 +197,39 @@ function updateVideoData(userId, callback) {
 }
 
 function cacheValid(cache) {
-    for (let key of ["stat", "info", "wordcloud", "count"]) {
-        if (!cache[key]) {
-            return false;
-        }
+    if (!cache) {
+        return false;
     }
-    return true;
+
+    return ["stat", "info", "wordcloud", "count"].every((key) => cache[key]);
 }
 
 function cacheAndUpdate(callback, userId, api, payload) {
-    let cache = {};
-    if (!userInfoCache.has(userId)) {
-        userInfoCache.set(userId, cache);
-    } else {
-        cache = userInfoCache.get(userId);
-    }
+    let cache = userInfoCache.get(userId) ?? {};
+
     cache[api] = payload;
 
+    userInfoCache.set(userId, cache);
+
     callback({"uid": userId, "api": api, "payload": payload});
+}
+
+function cacheValidVideo(cache) {
+    if (!cache) {
+        return false;
+    }
+
+    return ["conclusion", "view"].every((key) => cache[key]);
+}
+
+function cacheAndUpdateVideo(callback, videoId, api, payload) {
+    let cache = videoInfoCache.get(videoId) ?? {};
+
+    cache[api] = payload;
+
+    videoInfoCache.set(videoId, cache);
+
+    callback({"bvid": videoId, "api": api, "payload": payload});
 }
 
 function updateRelation(userId, callback) {
@@ -233,31 +244,63 @@ function updateRelation(userId, callback) {
 }
 
 function updateUserInfo(userId, callback) {
-    this._prevUserId = null;
-
-    if (this._prevUserId != userId) {
-        if (userInfoCache.has(userId) && cacheValid(userInfoCache.get(userId))) {
-            let cache = userInfoCache.get(userId);
-            for (let api in cache) {
-                callback({"uid": userId, "api": api, "payload": cache[api]});
-            }
-        } else {
-            biliGet(`${BILIBILI_API_URL}/x/relation/stat`, {
-                vmid: userId,
-                jsonp: "jsonp",
-            })
-            .then((data) => cacheAndUpdate(callback, userId, "stat", data));
-
-            biliGet(`${BILIBILI_API_URL}/x/space/wbi/acc/info`, {
-                mid: userId,
-            })
-            .then((data) => cacheAndUpdate(callback, userId, "info", data));
-
-            updateRelation(userId, callback);
-
-            updateVideoData(userId, callback);
+    let cache = userInfoCache.get(userId);
+    if (cacheValid(cache)) {
+        for (let api in cache) {
+            callback({"uid": userId, "api": api, "payload": cache[api]});
         }
+        return;
     }
+
+    biliGet(`${BILIBILI_API_URL}/x/relation/stat`, {
+        vmid: userId,
+        jsonp: "jsonp",
+    })
+    .then((data) => cacheAndUpdate(callback, userId, "stat", data));
+
+    biliGet(`${BILIBILI_API_URL}/x/space/wbi/acc/info`, {
+        mid: userId,
+    })
+    .then((data) => cacheAndUpdate(callback, userId, "info", data));
+
+    updateRelation(userId, callback);
+
+    updateVideoData(userId, callback);
+}
+
+function updateVideoInfo(videoId, callback) {
+    let cache = videoInfoCache.get(videoId);
+    if (cacheValidVideo(cache)) {
+        for (let api in cache) {
+            callback({"videoId": videoId, "api": api, "payload": cache[api]});
+        }
+        return;
+    }
+
+    biliGet(`${BILIBILI_API_URL}/x/web-interface/view`, {
+        bvid: videoId,
+    })
+    .then((data) => {
+        if (data["code"] == 0) {
+            cacheAndUpdateVideo(callback, videoId, "view", data["data"]);
+            biliGet(`${BILIBILI_API_URL}/x/web-interface/view/conclusion/get`, {
+                bvid: videoId,
+                cid: data["data"]["cid"],
+                up_mid: data["data"]["owner"]["mid"],
+            })
+            .then((data) => {
+                cacheAndUpdateVideo(callback, videoId, "conclusion", data["data"]);
+            })
+
+            biliGet(`${BILIBILI_API_URL}/x/v2/reply/wbi/main`, {
+                type: 1,
+                oid: data["data"]["aid"],
+            })
+            .then((data) => {
+                cacheAndUpdateVideo(callback, videoId, "reply", data["data"]);
+            })
+        }
+    })
 }
 
 
@@ -271,10 +314,10 @@ async function requestGuardPage(roomid, uid, pn, map) {
         .then((data) => {
             if (data["code"] == 0) {
                 for (let u of data["data"]["top3"]) {
-                    map.set(u.uid, u);
+                    map.set(u["uid"], u);
                 }
                 for (let u of data["data"]["list"]) {
-                    map.set(u.uid, u);
+                    map.set(u["uid"], u);
                 }
             }
             return data;

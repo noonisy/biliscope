@@ -4,13 +4,12 @@ function getUserCard(data) {
     return `
     <div class="col_6 col_md_4 mb_x60 biliscope-searchcard">
         <div class="b-user-info-card flex_start">
-            <a class="mr_md" href="//space.bilibili.com/${data.mid}" target="_blank" biliscope-userid="${data.mid}">
+            <a class="mr_md" href="//space.bilibili.com/${data["mid"]}" target="_blank" biliscope-userid="${data["mid"]}">
                 <div class="search-user-avatar p_relative">
                     <div class="avatar-wrap p_relative">
                         <div class="avatar-inner">
                             <div class="bili-avatar" style="width: 86px;height:86px;transform: translate(0px, 0px);">
-                                <img class="bili-avatar-img bili-avatar-face bili-avatar-img-radius" src="${data.face}@240w_240h_1c_1s_!web-avatar-search-user.webp">
-                                <span class="bili-avatar-icon bili-avatar-right-icon ${data.avatarIconClass} bili-avatar-size-86"></span>
+                                <img class="bili-avatar-img bili-avatar-face bili-avatar-img-radius" src="${data["face"]}@240w_240h_1c_1s_!web-avatar-search-user.webp">
                             </div>
                         </div>
                     </div>
@@ -18,16 +17,13 @@ function getUserCard(data) {
             </a>
             <div class="user-content pr_md">
                 <h2 class="b_text i_card_title mt_0">
-                    <a class="text1 p_relative" href="//space.bilibili.com/${data.mid}" target="_blank" biliscope-userid="${data.mid}">${data.name}</a>
+                    <a class="text1 p_relative" href="//space.bilibili.com/${data["mid"]}" target="_blank" biliscope-userid="${data["mid"]}">${data["name"]}</a>
                     <svg class="level-icon ml_sm v_align_baseline">
-                        <use xlink:href="#lv_${data.level}"></use>
+                        <use xlink:href="#lv_${data["level"]}"></use>
                     </svg>
-                    <span class="biliscope-search-tag-list" style="margin-left: 10px">${data.tagInner}</span>
+                    <span class="biliscope-search-tag-list" style="margin-left: 10px">${data["tagInner"]}</span>
                 </h2>
-                <p class="b_text fs_5 text2 text_ellipsis">${noteData[data.mid].split("\n", 1)[0]}</p>
-                <p class="b_text fs_5 text2 text_ellipsis">${data.sign}
-                    <span style="margin-left: 3px; ${data.official.title ? "": "display: none"}">${data.official.title}</span>
-                </p>
+                <p class="b_text fs_5 text2 text_ellipsis">${noteData[data["mid"]].split("\n", 1)[0]}</p>
             </div>
         </div>
     </div>
@@ -59,6 +55,24 @@ function updatePage(clear=true) {
             }
         }
 
+        let vuiTabs = Array.from(document.getElementsByClassName("vui_tabs--nav-link"));
+        for (let vuiTab of vuiTabs.reverse()) {
+            let texts = vuiTab.getElementsByClassName("vui_tabs--nav-text");
+            let nums = vuiTab.getElementsByClassName("vui_tabs--nav-num");
+            if (!(texts.length && nums.length)) {
+                break;
+            }
+
+            if (texts[0].textContent == "用户") {
+                if (this.users.size > 99) {
+                    nums[0].textContent = "99+";
+                } else {
+                    nums[0].textContent = this.users.size.toString();
+                }
+                break;
+            }
+        }
+
         let container = document.getElementById("biliscope-tag-search-result");
 
         if (!container || clear) {
@@ -81,19 +95,12 @@ function updatePage(clear=true) {
         } else if (newUsers.length > 0) {
             biliGet("https://api.vc.bilibili.com/account/v1/user/cards", {"uids": newUsers.join()})
             .then(data => {
-                for (let d of data.data) {
+                for (let d of data["data"]) {
                     let tagInner = "";
-                    for (let tag of getTags(d.mid)) {
+                    for (let tag of getTags(d["mid"])) {
                         tagInner += `<a href="//search.bilibili.com/upuser?keyword=%23${encodeURIComponent(tag)}"><span class="biliscope-search-tag">${tag}</span></a>`;
                     }
-                    d.tagInner = tagInner;
-                    if ([1, 2, 7, 9].includes(d.official.role)) {
-                        d.avatarIconClass = "bili-avatar-icon-personal";
-                    } else if ([3, 4, 5, 6].includes(d.official.role)) {
-                        d.avatarIconClass = "bili-avatar-icon-business";
-                    } else {
-                        d.avatarIconClass = "";
-                    }
+                    d["tagInner"] = tagInner;
                     container.innerHTML += getUserCard(d);
                 }
             })

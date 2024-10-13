@@ -9,15 +9,50 @@
 
 <body>
   <div class="item">
+    <label for="enable-up-card">开启up主卡片:</label>
+    <input type="checkbox" id="enable-up-card">
+  </div>
+  <div class="item">
+    <label for="enable-block-button">开启拉黑键:</label>
+    <input type="checkbox" id="enable-block-button">
+  </div>
+  <div class="item">
+    <label for="enable-rollback-feedcard">开启首页换一换的前进后退:</label>
+    <input type="checkbox" id="enable-rollback-feedcard">
+  </div>
+  <div class="item">
+    <label for="enable-ai-summary">开启视频AI总结:</label>
+    <input type="checkbox" id="enable-ai-summary">
+  </div>
+  <div class="item">
+    <label for="enable-hot-comment">开启热评:</label>
+    <input type="checkbox" id="enable-hot-comment">
+  </div>
+  <div class="item">
+    <label for="ai-summary-hover-threshold">视频AI总结悬停触发时长（毫秒）:</label>
+    <input type="number" id="ai-summary-hover-threshold">
+  </div>
+  <div class="item">
+    <label for="enable-video-tag">开启视频标签:</label>
+    <input type="checkbox" id="enable-video-tag">
+  </div>
+  <div class="item">
     <label for="enable-word-cloud">使用词云:</label>
     <input type="checkbox" id="enable-word-cloud">
   </div>
   <div class="number-selector item">
-    <label for="min-number">最小字号:</label>
+    <label for="min-number">词云最小字号:</label>
     <button id="decrement" class="btn btn-change">-</button>
       <input type="number" id="min-number" value="5" min="5" max="50">
     <button id="increment" class="btn btn-change">+</button>
     <p class="desc">(小于此设置字号的词将不会显示)</p>
+  </div>
+
+  <hr>
+
+  <div class="item">
+    <label for="enable-ip-label">开启IP地址显示:</label>
+    <input type="checkbox" id="enable-ip-label">
   </div>
 
   <hr>
@@ -66,6 +101,7 @@
   <div id="status" class="item"></div>
   <div class="item">
     <button id="save" class="btn btn-primary">保存</button>
+    <button id="report-issue" class="btn btn-primary" style="float: right;">反馈问题</button>
   </div>
   <script src="options.js"></script>
 </body>

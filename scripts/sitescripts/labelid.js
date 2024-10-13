@@ -1,9 +1,10 @@
-const BILIBILI_DYNAMIC_URL = "https://t.bilibili.com"
-const BILIBILI_SPACE_URL = "https://space.bilibili.com"
-const BILIBILI_POPULAR_URL = "https://www.bilibili.com/v/popular"
-const BILIBILI_VIDEO_URL = "https://www.bilibili.com/video"
-
-var pageObserver = null;
+// These could be redefined in the other site scripts so use var instead of const
+var BILIBILI_DYNAMIC_URL = "https://t.bilibili.com"
+var BILIBILI_DYNAMIC_DETAIL_URL = "https://www.bilibili.com/opus"
+var BILIBILI_SPACE_URL = "https://space.bilibili.com"
+var BILIBILI_POPULAR_URL = "https://www.bilibili.com/v/popular"
+var BILIBILI_VIDEO_URL = "https://www.bilibili.com/video"
+var BILIBILI_WATCH_LATER_URL = "https://www.bilibili.com/list/watchlater"
 
 function getUserIdFromLink(s) {
     let regex = /.*?bilibili.com\/([0-9]*)(\/dynamic)?([^\/]*|\/|\/\?.*)$/;
@@ -13,6 +14,15 @@ function getUserIdFromLink(s) {
         return s.match(regex)[1];
     }
     return userId;
+}
+
+function getVideoIdFromLink(link) {
+    const regexBV = /(BV[1-9a-zA-Z]{10})/g;
+    return link.match(regexBV)?.[0];
+}
+
+function elementImageChildren(el) {
+    return el.querySelector("img") || el.querySelector("picture");
 }
 
 function labelPopularPage() {
@@ -39,6 +49,20 @@ function labelDynamicPage() {
         }
     }
 
+    for (const el of document.querySelectorAll(".dyn-orig-author__face, .dyn-orig-author__name")) {
+        const uid = el?._profile?.uid;
+        if (uid) {
+            el.setAttribute("biliscope-userid", uid);
+        }
+    }
+
+    for (const el of document.getElementsByClassName("bili-rich-text-module at")) {
+        const uid = el?._profile?.uid;
+        if (uid) {
+            el.setAttribute("biliscope-userid", uid);
+        }
+    }
+
     for (let el of document.getElementsByClassName("bili-dyn-up-list")) {
         let upList = el.__vue__.list;
         let upElements = el.getElementsByClassName("bili-dyn-up-list__item");
@@ -49,19 +73,12 @@ function labelDynamicPage() {
         }
     }
 
-    for (let className of ["user-name", "root-reply-avatar", "sub-user-name", "sub-reply-avatar"]) {
-        for (let el of document.getElementsByClassName(className)) {
-            let mid = el.getAttribute("data-user-id");
-            if (mid) {
-                el.setAttribute("biliscope-userid", mid);
-            }
-        }
-    }
+    labelComments();
 }
 
-function labelVideoPage() {
-    for (let el of document.querySelectorAll(".user-name,.root-reply-avatar,.sub-user-name,.sub-reply-avatar")) {
-        let mid = el.getAttribute("data-user-id");
+function labelComments() {
+    for (const el of document.querySelectorAll(".user-name, .root-reply-avatar, .sub-user-name, .sub-reply-avatar")) {
+        const mid = el.getAttribute("data-user-id");
         if (mid) {
             el.setAttribute("biliscope-userid", mid);
         }
@@ -80,20 +97,29 @@ function labelLinks() {
             if (userId) {
                 el.setAttribute("biliscope-userid", userId);
             }
+        } else if (el.href.startsWith(BILIBILI_VIDEO_URL) ||
+                   el.href.startsWith(BILIBILI_WATCH_LATER_URL)) {
+            const videoId = getVideoIdFromLink(el.href);
+            if (videoId && elementImageChildren(el)) {
+                el.setAttribute("biliscope-videoid", videoId);
+            }
         }
     }
 }
 
-function installHooks() {
-    pageObserver = new MutationObserver((mutationList, observer) => {
+
+function installIdHooks() {
+    let pageObserver = new MutationObserver((mutationList, observer) => {
         labelLinks();
 
         if (window.location.href.startsWith(BILIBILI_POPULAR_URL)) {
             labelPopularPage();
-        } else if (window.location.href.startsWith(BILIBILI_DYNAMIC_URL)) {
+        } else if (window.location.href.startsWith(BILIBILI_DYNAMIC_URL) ||
+                   window.location.href.startsWith(BILIBILI_DYNAMIC_DETAIL_URL) ||
+                   window.location.href.startsWith(BILIBILI_SPACE_URL)) {
             labelDynamicPage();
-        } else if (window.location.href.startsWith(BILIBILI_VIDEO_URL)) {
-            labelVideoPage();
+        } else if (window.location.href.startsWith(BILIBILI_WATCH_LATER_URL)) {
+            labelComments();
         }
     })
 
@@ -101,6 +127,7 @@ function installHooks() {
         childList: true,
         subtree: true,
     })
+
 }
 
-installHooks()
+installIdHooks()
