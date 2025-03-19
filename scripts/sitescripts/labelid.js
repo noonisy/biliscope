@@ -5,6 +5,7 @@ var BILIBILI_SPACE_URL = "https://space.bilibili.com"
 var BILIBILI_POPULAR_URL = "https://www.bilibili.com/v/popular"
 var BILIBILI_VIDEO_URL = "https://www.bilibili.com/video"
 var BILIBILI_WATCH_LATER_URL = "https://www.bilibili.com/list/watchlater"
+var BILIBILI_CM_URL = "https://cm.bilibili.com"
 
 function getUserIdFromLink(s) {
     let regex = /.*?bilibili.com\/([0-9]*)(\/dynamic)?([^\/]*|\/|\/\?.*)$/;
@@ -36,15 +37,15 @@ function labelPopularPage() {
 
 function labelDynamicPage() {
     for (let el of document.getElementsByClassName("bili-dyn-item")) {
-        let mid = el.__vue__.author.mid;
-        if (mid) {
+        const {mid, type} = el.__vue__.author;
+        if (mid && type == "AUTHOR_TYPE_NORMAL") {
             el.getElementsByClassName("bili-dyn-item__avatar")[0].setAttribute("biliscope-userid", mid);
         }
     }
 
     for (let el of document.getElementsByClassName("bili-dyn-title")) {
-        let mid = el.__vue__.author.mid;
-        if (mid) {
+        const {mid, type} = el.__vue__.author;
+        if (mid && type == "AUTHOR_TYPE_NORMAL") {
             el.getElementsByClassName("bili-dyn-title__text")[0].setAttribute("biliscope-userid", mid);
         }
     }
@@ -72,11 +73,9 @@ function labelDynamicPage() {
             up.setAttribute("biliscope-userid", upList[idx].mid);
         }
     }
-
-    labelComments();
 }
 
-function labelComments() {
+function labelOldComments() {
     for (const el of document.querySelectorAll(".user-name, .root-reply-avatar, .sub-user-name, .sub-reply-avatar")) {
         const mid = el.getAttribute("data-user-id");
         if (mid) {
@@ -94,6 +93,12 @@ function labelLinks() {
             }
         } else if (el.classList.contains("jump-link")) {
             let userId = el.getAttribute("data-user-id");
+            if (userId) {
+                el.setAttribute("biliscope-userid", userId);
+            }
+        } else if (el.href.startsWith(BILIBILI_CM_URL)) {
+            let url = new URL(el.href);
+            let userId = url.searchParams.get("space_mid");
             if (userId) {
                 el.setAttribute("biliscope-userid", userId);
             }
@@ -118,8 +123,7 @@ function installIdHooks() {
                    window.location.href.startsWith(BILIBILI_DYNAMIC_DETAIL_URL) ||
                    window.location.href.startsWith(BILIBILI_SPACE_URL)) {
             labelDynamicPage();
-        } else if (window.location.href.startsWith(BILIBILI_WATCH_LATER_URL)) {
-            labelComments();
+            labelOldComments();
         }
     })
 

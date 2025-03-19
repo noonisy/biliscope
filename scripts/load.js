@@ -94,9 +94,18 @@ window.addEventListener("load", function() {
                         avatar?.addEventListener("mouseover", showProfileDebounce);
 
                         const userNameA = mainComment.shadowRoot
-                                          .querySelector("bili-comment-user-info").shadowRoot
-                                          .querySelector("#user-name > a");
+                                          ?.querySelector("bili-comment-user-info")?.shadowRoot
+                                          ?.querySelector("#user-name > a");
                         userNameA?.addEventListener("mouseover", showProfileDebounce);
+
+                        const richText = mainComment.shadowRoot.querySelector("bili-rich-text");
+                        if (richText) {
+                            tryObserve(richText.shadowRoot);
+                            const userNameAts = richText.shadowRoot.querySelectorAll("a[data-user-profile-id]");
+                            for (const userNameAt of userNameAts) {
+                                userNameAt.addEventListener("mouseover", showProfileDebounce);
+                            }
+                        }
                     }
 
                     if (replies) {
@@ -105,12 +114,23 @@ window.addEventListener("load", function() {
                                             .querySelectorAll("bili-comment-reply-renderer")) {
                             tryObserve(reply.shadowRoot);
                             const userInfo = reply.shadowRoot.querySelector("bili-comment-user-info");
-                            const avatar = userInfo.querySelector("#user-avatar");
-                            avatar?.addEventListener("mouseover", showProfileDebounce);
+                            if (userInfo) {
+                                const avatar = userInfo.querySelector("#user-avatar");
+                                avatar?.addEventListener("mouseover", showProfileDebounce);
 
-                            tryObserve(userInfo.shadowRoot);
-                            const userNameA = userInfo.shadowRoot.querySelector("#user-name > a");
-                            userNameA?.addEventListener("mouseover", showProfileDebounce);
+                                tryObserve(userInfo.shadowRoot);
+                                const userNameA = userInfo.shadowRoot?.querySelector("#user-name > a");
+                                userNameA?.addEventListener("mouseover", showProfileDebounce);
+                            }
+
+                            const richText = reply.shadowRoot.querySelector("bili-rich-text");
+                            if (richText) {
+                                tryObserve(richText.shadowRoot);
+                                const userNameAts = richText.shadowRoot.querySelectorAll("a[data-user-profile-id]");
+                                for (const userNameAt of userNameAts) {
+                                    userNameAt.addEventListener("mouseover", showProfileDebounce);
+                                }
+                            }
                         }
                     }
 
@@ -118,9 +138,11 @@ window.addEventListener("load", function() {
             }
         }
 
-        if (window.location.href.startsWith(BILIBILI_DYNAMIC_URL) ||
+        if (window.location.href.startsWith(BILIBILI_SPACE_URL) ||
+            window.location.href.startsWith(BILIBILI_DYNAMIC_URL) ||
             window.location.href.startsWith(BILIBILI_DYNAMIC_DETAIL_URL) ||
-            window.location.href.startsWith(BILIBILI_VIDEO_URL)) {
+            window.location.href.startsWith(BILIBILI_VIDEO_URL) ||
+            window.location.href.startsWith(BILIBILI_WATCH_LATER_URL)) {
             const idObserver = new MutationObserver((mutationList, observer) => {
                 labelComments(idObserver);
             });

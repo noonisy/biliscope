@@ -130,29 +130,24 @@ function getAiSummaryHTML(data) {
 function VideoProfileCard() {
     this.enabled = false;
     this.data = {};
-    this.cursorX = 0;
-    this.cursorY = 0;
     this.target = null;
-    this.enabled = false;
+    this.valid = false;
     this.videoId = null;
     this.el = document.createElement("div");
     this.el.style.position = "absolute";
     this.el.style.display = "none";
     this.el.innerHTML = getVideoProfileCardHTML(this.data);
-    this.el.addEventListener("click", (event) => {
-        event.stopPropagation();
-        let node = event.target;
-        while (node && node.id != "biliscope-video-card") {
-            if (node.getAttribute("biliscope-video-timestamp")) {
-                let timestamp = parseInt(node.getAttribute("biliscope-video-timestamp"));
-                let tLink = secondsToTimeLink(timestamp);
-                window.open(`https://www.bilibili.com/video/${this.videoId}/?t=${tLink}`, "_blank");
-                break;
-            }
-            node = node.parentNode;
+    document.body.appendChild(this.el);
+
+    const outlineDiv = document.getElementById("biliscope-ai-summary-outline");
+    outlineDiv?.addEventListener("click", (ev) => {
+        const node = ev.target.closest("[biliscope-video-timestamp]");
+        if (node) {
+            const timestamp = parseInt(node.getAttribute("biliscope-video-timestamp"));
+            const tLink = secondsToTimeLink(timestamp);
+            window.open(`https://www.bilibili.com/video/${this.videoId}/?t=${tLink}`, "_blank");
         }
     });
-    document.body.appendChild(this.el);
 
     this.disable();
 }
@@ -170,10 +165,16 @@ VideoProfileCard.prototype.disable = function() {
     this.enabled = false;
     this.valid = false;
     this.data = {};
-    if (this.el) {
-        this.el.style.display = "none";
-    }
+    this.el.style.display = "none";
+    this.hideCardContent();
     return true;
+}
+
+VideoProfileCard.prototype.hideCardContent = function() {
+    const ids = ["biliscope-ai-summary-popup", "biliscope-hot-comment-wrapper"];
+    for (const id of ids) {
+        document.getElementById(id)?.classList.add("d-none");
+    }
 }
 
 VideoProfileCard.prototype.setLeaveEvent = function() {
@@ -225,77 +226,26 @@ VideoProfileCard.prototype.updateVideoId = function(videoId) {
 }
 
 VideoProfileCard.prototype.updatePosition = function() {
-    const needVerticalDisplay = () => {
-        if (window.location.href.startsWith(BILIBILI_DYNAMIC_URL) ||
-            window.location.href.startsWith(BILIBILI_DYNAMIC_DETAIL_URL) ||
-            window.location.href.startsWith(BILIBILI_SPACE_URL) &&
-            window.location.pathname.endsWith("/dynamic")) {
-            // 动态页的视频
-            if (this.target.matches(".bili-dyn-card-video")) {
-                return true;
-            }
-        } else if (window.location.href.startsWith(BILIBILI_VIDEO_URL) ||
-                    window.location.href.startsWith(BILIBILI_WATCH_LATER_URL)) {
-            // 视频页右侧的推荐视频
-            if (this.target.matches("#reco_list [biliscope-videoid]")) {
-                return true;
-            }
-        } else if (window.location.href.startsWith(BILIBILI_POPULAR_URL)) {
-            // 热门页的视频
-            if (this.target.matches(".popular-container [biliscope-videoid]")) {
-                return true;
-            }
-        }
+    const targetBounding = this.target.getBoundingClientRect();
+    const {href} = window.location;
 
-        return false;
-    }
-
-    if (this.el) {
-        const cardWidth = this.el.scrollWidth;
-        const cardHeight = this.el.scrollHeight;
-
-        const cursorPadding = 10;
-        const windowPadding = 20;
-        /** @type {DOMRect} */
-        const targetBounding = this.target.getBoundingClientRect();
-
-        if (needVerticalDisplay()) {
-            // 往上下显示
-            if (targetBounding.bottom + cardHeight > window.innerHeight &&
-                targetBounding.top - cardHeight > 0) {
-                // Will overflow to the bottom and not overflow to the top, put it on the top
-                this.el.style.top = `${targetBounding.top - cursorPadding - cardHeight + window.scrollY}px`;
-            } else {
-                this.el.style.top = `${targetBounding.bottom + window.scrollY + cursorPadding}px`;
-            }
-
-            if (targetBounding.left + cardWidth > window.innerWidth) {
-                // Will overflow to the right, put it on the left
-                this.el.style.left = `${targetBounding.right - cardHeight + window.scrollX}px`;
-            } else {
-                this.el.style.left = `${targetBounding.left + window.scrollX}px`;
-            }
-        } else {
-            // 往左右显示
-            if (targetBounding.right + windowPadding + cardWidth > window.innerWidth) {
-                // Will overflow to the right, put it on the left
-                this.el.style.left = `${targetBounding.left - cursorPadding - cardWidth + window.scrollX}px`;
-            } else {
-                this.el.style.left = `${targetBounding.right + window.scrollX + cursorPadding}px`;
-            }
-
-            if (targetBounding.top + windowPadding + cardHeight < window.innerHeight) {
-                // Put it on the bottom
-                this.el.style.top = `${targetBounding.top + window.scrollY}px`;
-            } else if (targetBounding.bottom - windowPadding - cardHeight > 0) {
-                // Put it on the top
-                this.el.style.top = `${targetBounding.bottom - cardHeight + window.scrollY}px`;
-            } else {
-                // Put it in the middle
-                const middle = targetBounding.top + (targetBounding.bottom - targetBounding.top) / 2;
-                this.el.style.top = `${middle - cardHeight / 2 + window.scrollY}px`;
-            }
-        }
+    if (this.target.matches(".bili-dyn-card-video") &&
+        (href.startsWith(BILIBILI_DYNAMIC_URL) ||
+         href.startsWith(BILIBILI_DYNAMIC_DETAIL_URL) ||
+         href.startsWith(BILIBILI_SPACE_URL) && window.location.pathname.endsWith("/dynamic"))) {
+        // 动态界面
+        displayElOutsideTarget(this.el, targetBounding, ['left', 'bottom', 'top', 'right', "default"]);
+    } else if (this.target.matches(".popular-container [biliscope-videoid]") &&
+               href.startsWith(BILIBILI_POPULAR_URL)) {
+        // 热门页的视频
+        displayElOutsideTarget(this.el, targetBounding, ['bottom', 'top', 'left', "default"]);
+    } else if (this.target.matches("#reco_list [biliscope-videoid]") &&
+               (href.startsWith(BILIBILI_VIDEO_URL) ||
+                href.startsWith(BILIBILI_WATCH_LATER_URL))) {
+        // 视频页右侧的推荐视频
+        displayElOutsideTarget(this.el, targetBounding, ['left', 'bottom', 'top', "default"]);
+    } else {
+        displayElOutsideTarget(this.el, targetBounding, ['right', 'left', 'bottom', 'top', "default"]);
     }
 }
 
@@ -323,13 +273,23 @@ VideoProfileCard.prototype.updateTarget = function(target) {
 }
 
 VideoProfileCard.prototype.drawConclusion = function() {
+    document.getElementById("biliscope-ai-summary-popup").classList.add("d-none");
+
     let summary = this.data.conclusion?.model_result?.summary;
     let outline = this.data.conclusion?.model_result?.outline;
-    document.getElementById("biliscope-ai-summary-abstracts").innerHTML = summary || "";
+    const summaryDiv = document.getElementById("biliscope-ai-summary-abstracts");
+    const outlineDiv = document.getElementById("biliscope-ai-summary-outline");
+
+    if (summary) {
+        summaryDiv.classList.remove("d-none");
+        summaryDiv.innerHTML = summary;
+    } else {
+        summaryDiv.classList.add("d-none");
+    }
 
     if (outline && outline.length > 0) {
         let outlineHTML = "";
-        document.getElementById("biliscope-ai-summary-outline").classList.remove("d-none");
+        outlineDiv.classList.remove("d-none");
         for (let i = 0; i < outline.length; i++) {
             outlineHTML += `<div class="ai-summary-section" biliscope-video-timestamp="${outline[i].timestamp}">`;
             outlineHTML += `<div class="ai-summary-section-title">
@@ -348,9 +308,13 @@ VideoProfileCard.prototype.drawConclusion = function() {
             }
             outlineHTML += "</div>";
         }
-        document.getElementById("biliscope-ai-summary-outline").innerHTML = outlineHTML;
+        outlineDiv.innerHTML = outlineHTML;
     } else {
-        document.getElementById("biliscope-ai-summary-outline").classList.add("d-none");
+        outlineDiv.classList.add("d-none");
+    }
+
+    if (summary || outline?.length > 0) {
+        document.getElementById("biliscope-ai-summary-popup").classList.remove("d-none");
     }
 }
 
@@ -428,7 +392,8 @@ VideoProfileCard.prototype.updateData = function(data) {
         this.data.view = data["payload"];
     } else if (data["api"] == "conclusion") {
         this.data.conclusion = data["payload"];
-        if (this.data.conclusion.model_result.summary) {
+        if (this.data.conclusion.code == 0 &&
+            this.data.conclusion.model_result.result_type != 0) {
             this.valid = true;
         } else {
             this.valid = false;
@@ -437,7 +402,7 @@ VideoProfileCard.prototype.updateData = function(data) {
         this.data.replies = data.payload?.replies;
     }
 
-    if (this.enabled && this.el) {
+    if (this.enabled) {
         if (this.valid != null) {
             this.el.style.display = "flex";
             if (this.valid) {

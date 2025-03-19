@@ -102,7 +102,7 @@ function noteDataToDisplay(noteData, mid) {
 
 function getUserProfileCardDataHTML(data) {
     return `
-        <div class="idc-theme-img" style="background-image: url(&quot;${data["top_photo"]}@100Q.webp&quot;);">
+        <div class="idc-theme-img" ${data["top_photo"] ? `style="background-image: url(&quot;${data["top_photo"]}@100Q.webp&quot;);"`: ''}>
             <div style="position: absolute; top: 85px; right: 10px">
                 <a><span id="biliscope-follow-button" 
                          class="biliscope-relation ${relationClass(data)}" 
@@ -115,7 +115,7 @@ function getUserProfileCardDataHTML(data) {
         </div>
         <div class="idc-info clearfix">
             <a class="idc-avatar-container" href="https://space.bilibili.com/${data["mid"]}" target="_blank">
-                <img alt="${data["name"]}" src="${data["face"]}@54w_54h_1c.webp" class="idc-avatar">
+                <img alt="${data["name"]}" ${data["face"] ? `src="${data["face"]}@54w_54h_1c.webp"` : ''} class="idc-avatar">
                 <div class="${data["live_status"] ? "": "d-none"}">
                     <div class="live-tab">
                         <img src="//s1.hdslb.com/bfs/static/jinkela/space/assets/live.gif" alt="live" class="live-gif">
@@ -287,7 +287,7 @@ function UserProfileCard() {
     this.cursorY = 0;
     this.target = null;
     this.enabled = false;
-    this.valid = true;
+    this.valid = false;
     this.wordCloud = null;
     this.fixed = false;
     this.cursorInside = false;
@@ -315,6 +315,7 @@ UserProfileCard.prototype.disable = function() {
         return false;
     }
 
+    this.valid = false;
     this.userId = null;
     this.enabled = false;
     this.data = {};
@@ -333,10 +334,6 @@ UserProfileCard.prototype.disable = function() {
 UserProfileCard.prototype.enable = function() {
     if (!this.enabled) {
         this.enabled = true;
-        this.idCardObserver.observe(document.body, {
-            "childList": true,
-            "subtree": true
-        })
         return true;
     }
     return false;
@@ -401,34 +398,29 @@ UserProfileCard.prototype.updateUserId = function(userId) {
 }
 
 UserProfileCard.prototype.updateCursor = function(cursorX, cursorY) {
-    const cursorPadding = 10;
-    const windowPadding = 20;
-
     this.cursorX = cursorX;
     this.cursorY = cursorY;
+    const targetBounding = this.target
+        ? this.target.getBoundingClientRect()
+        : {left: cursorX, right: cursorX, top: cursorY, bottom: cursorY};
 
-    if (this.el) {
-        let width = this.el.scrollWidth;
-        let height = this.el.scrollHeight;
+    const href = window.location.href;
 
-        if (this.cursorX + width + windowPadding > window.scrollX + window.innerWidth) {
-            // Will overflow to the right, put it on the left
-            this.el.style.left = `${this.cursorX - cursorPadding - width}px`;
-        } else {
-            this.el.style.left = `${this.cursorX + cursorPadding}px`;
-        }
+    if (href.startsWith(BILIBILI_DYNAMIC_URL) ||
+        href.startsWith(BILIBILI_DYNAMIC_DETAIL_URL)) {
+        // 动态界面
+        displayElOutsideTarget(
+            this.el,
+            targetBounding,
+            ['left', 'bottom', 'right', 'top', 'default']
+        );
+    } else {
+        displayElOutsideTarget(
+            this.el,
+            targetBounding,
+            ['right', 'left']
+        );
 
-        if (this.cursorY + height + windowPadding > window.scrollY + window.innerHeight) {
-            // Will overflow to the bottom, put it on the top
-            if (this.cursorY - windowPadding - height < window.scrollY) {
-                // Can't fit on top either, put it in the middle
-                this.el.style.top = `${window.scrollY + (window.innerHeight - height) / 2}px`;
-            } else {
-                this.el.style.top = `${this.cursorY - cursorPadding - height}px`;
-            }
-        } else {
-            this.el.style.top = `${this.cursorY + cursorPadding}px`;
-        }
     }
 }
 
@@ -657,9 +649,12 @@ UserProfileCard.prototype.setupTriggers = function() {
 }
 
 UserProfileCard.prototype.drawWordCloud = function(canvas) {
-    canvas.style.height = `${canvas.offsetWidth / 2}px`;
-    canvas.width = canvas.offsetWidth * window.devicePixelRatio;
-    canvas.height = canvas.offsetHeight * window.devicePixelRatio;
+    const idCard = document.getElementById("biliscope-id-card");
+    const cardWidth = parseInt(window.getComputedStyle(idCard).width.replace("px", ""));
+
+    canvas.style.height = `${cardWidth / 2}px`;
+    canvas.width = cardWidth * window.devicePixelRatio;
+    canvas.height = cardWidth / 2 * window.devicePixelRatio;
 
     canvas.parentNode.classList.add("biliscope-canvas-show");
 
@@ -735,6 +730,10 @@ UserProfileCard.prototype.updateData = function (data) {
     }
 
     if (this.enabled && this.valid && this.el && this.el.style.display != "flex") {
+        this.idCardObserver.observe(document.body, {
+            "childList": true,
+            "subtree": true
+        })
         this.clearOriginalCard();
         this.el.style.display = "flex";
     }
